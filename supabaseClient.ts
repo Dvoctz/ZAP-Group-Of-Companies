@@ -3,9 +3,9 @@ import { Product, Order, CartItem } from './types';
 
 // These environment variables should be configured in your deployment environment (e.g., Vercel).
 // They are not hardcoded for security reasons.
-// FIX: Changed from `import.meta.env` to `process.env` to fix TypeScript error "Property 'env' does not exist on type 'ImportMeta'".
-const supabaseUrl = process.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY as string;
+// Fix: Cast import.meta to any to access Vite's env variables and resolve TypeScript error.
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string;
 
 // A fallback for local development if environment variables are not set.
 // In a real production scenario, you would want to ensure these are always set.
