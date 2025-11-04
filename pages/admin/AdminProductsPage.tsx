@@ -1,19 +1,21 @@
-import React, { useState, FormEvent, useRef } from 'react';
+import React, { useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { useProducts } from '../../context/ProductContext';
 import { Product } from '../../types';
+import { uploadProductImage } from '../../supabaseClient';
 
 const INITIAL_FORM_STATE = {
     companySlug: 'zap-stationers',
     name: '',
     price: '',
     description: '',
-    imageUrl: '',
 };
 
 const AdminProductsPage: React.FC = () => {
     const { stores, addProduct, updateProduct, deleteProduct, loading } = useProducts();
     const [formData, setFormData] = useState(INITIAL_FORM_STATE);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMessage, setSubmitMessage] = useState('');
     const formRef = useRef<HTMLDivElement>(null);
@@ -21,6 +23,14 @@ const AdminProductsPage: React.FC = () => {
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            const file = e.target.files[0];
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+        }
     };
 
     const handleEdit = (product: Product, slug: string) => {
@@ -30,8 +40,9 @@ const AdminProductsPage: React.FC = () => {
             name: product.name,
             price: String(product.price),
             description: product.description,
-            imageUrl: product.imageUrl,
         });
+        setImageFile(null);
+        setImagePreview(product.imageUrl);
         formRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
@@ -44,11 +55,34 @@ const AdminProductsPage: React.FC = () => {
     const handleCancelEdit = () => {
         setEditingProduct(null);
         setFormData(INITIAL_FORM_STATE);
+        setImageFile(null);
+        setImagePreview(null);
     };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
+        
+        if (!editingProduct && !imageFile) {
+            setSubmitMessage('Product image is required for a new product.');
+            setTimeout(() => setSubmitMessage(''), 3000);
+            return;
+        }
+
         setIsSubmitting(true);
+        setSubmitMessage('');
+
+        let finalImageUrl = editingProduct ? editingProduct.imageUrl : '';
+
+        if (imageFile) {
+            const { publicUrl, error } = await uploadProductImage(imageFile);
+            if (error || !publicUrl) {
+                console.error(error);
+                setSubmitMessage('Image upload failed. Please try again.');
+                setIsSubmitting(false);
+                return;
+            }
+            finalImageUrl = publicUrl;
+        }
 
         if (editingProduct) {
             const productData: Product = {
@@ -56,7 +90,7 @@ const AdminProductsPage: React.FC = () => {
                 name: formData.name,
                 price: parseFloat(formData.price),
                 description: formData.description,
-                imageUrl: formData.imageUrl,
+                imageUrl: finalImageUrl,
             };
             await updateProduct(formData.companySlug, productData);
             setSubmitMessage('Product updated successfully!');
@@ -65,7 +99,7 @@ const AdminProductsPage: React.FC = () => {
                 name: formData.name,
                 price: parseFloat(formData.price),
                 description: formData.description,
-                imageUrl: formData.imageUrl,
+                imageUrl: finalImageUrl,
             };
             await addProduct(formData.companySlug, productData);
             setSubmitMessage('Product added successfully!');
@@ -105,8 +139,13 @@ const AdminProductsPage: React.FC = () => {
                                 <input type="number" id="price" name="price" value={formData.price} onChange={handleInputChange} required className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500" />
                             </div>
                              <div>
-                                <label htmlFor="imageUrl" className="block text-sm font-medium text-gray-300">Image URL</label>
-                                <input type="url" id="imageUrl" name="imageUrl" value={formData.imageUrl} required placeholder="https://picsum.photos/..." className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500" />
+                                <label htmlFor="imageFile" className="block text-sm font-medium text-gray-300">Product Image</label>
+                                <input type="file" id="imageFile" name="imageFile" onChange={handleImageChange} accept="image/*" className="mt-1 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-100 file:text-cyan-700 hover:file:bg-cyan-200 cursor-pointer"/>
+                                {imagePreview && (
+                                    <div className="mt-4">
+                                        <img src={imagePreview} alt="Product Preview" className="h-32 w-32 object-cover rounded-md shadow-md" />
+                                    </div>
+                                )}
                             </div>
                             <div>
                                 <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description</label>

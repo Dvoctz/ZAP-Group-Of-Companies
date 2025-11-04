@@ -8,6 +8,12 @@ const HomeIcon = () => (
     </svg>
 );
 
+const UserIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    </svg>
+);
+
 const MenuIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
@@ -15,12 +21,12 @@ const MenuIcon = () => (
 );
 
 const AdminLayout: React.FC = () => {
-    const { logout } = useAuth();
+    const { logout, user } = useAuth();
     const navigate = useNavigate();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-    const handleLogout = () => {
-        logout();
+    const handleLogout = async () => {
+        await logout();
         navigate('/admin/login');
     };
 
@@ -53,8 +59,14 @@ const AdminLayout: React.FC = () => {
                     <NavLink to="/admin/orders" className={navLinkClasses} onClick={() => setIsSidebarOpen(false)}>Orders</NavLink>
                     <NavLink to="/admin/products" className={navLinkClasses} onClick={() => setIsSidebarOpen(false)}>Products</NavLink>
                 </nav>
-
-                <div className="mt-auto">
+                
+                <div className="border-t border-gray-700 pt-4 mt-4">
+                     {user && (
+                        <div className="flex items-center px-4 py-3 text-sm text-gray-400">
+                           <UserIcon />
+                           <span className="truncate">{user.email}</span>
+                        </div>
+                    )}
                     <Link to="/" className={staticLinkClasses}>
                         <HomeIcon />
                         Back to Site

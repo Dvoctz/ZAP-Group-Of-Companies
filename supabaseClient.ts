@@ -15,6 +15,40 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+
+/**
+ * Uploads a product image to Supabase Storage.
+ * IMPORTANT: In your Supabase project, you must create a Storage bucket named 'product-images'
+ * and set its access policy to be public. This allows the image URLs to be displayed in your app.
+ * @param file The image file to upload.
+ * @returns An object with the public URL of the uploaded image or an error object.
+ */
+export const uploadProductImage = async (file: File): Promise<{ publicUrl: string | null; error: Error | null }> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}.${fileExt}`;
+    const filePath = `public/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from('product-images')
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        return { publicUrl: null, error: new Error(uploadError.message) };
+    }
+
+    const { data } = supabase.storage
+        .from('product-images')
+        .getPublicUrl(filePath);
+
+    if (!data.publicUrl) {
+        return { publicUrl: null, error: new Error('Could not get public URL for the uploaded image.') };
+    }
+
+    return { publicUrl: data.publicUrl, error: null };
+};
+
+
 // Define Supabase-specific types if they differ from your app's internal types.
 // This can be useful for type-checking data coming from the database.
 

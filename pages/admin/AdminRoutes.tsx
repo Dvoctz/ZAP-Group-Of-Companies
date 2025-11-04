@@ -8,15 +8,15 @@ import AdminOrdersPage from './AdminOrdersPage';
 import AdminProductsPage from './AdminProductsPage';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { isAuthenticated } = useAuth();
-    if (!isAuthenticated) {
+    const { session } = useAuth();
+    if (!session) {
         return <Navigate to="/admin/login" replace />;
     }
     return <>{children}</>;
 };
 
 const AdminRoutes: React.FC = () => {
-    const { isAuthenticated } = useAuth();
+    const { session } = useAuth();
 
     return (
         <Routes>
@@ -25,7 +25,7 @@ const AdminRoutes: React.FC = () => {
             <Route 
                 path="/" 
                 element={
-                    isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />
+                    session ? <Navigate to="/admin/dashboard" replace /> : <Navigate to="/admin/login" replace />
                 } 
             />
 

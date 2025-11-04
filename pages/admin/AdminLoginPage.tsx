@@ -9,23 +9,28 @@ const HomeIcon = () => (
 );
 
 const AdminLoginPage: React.FC = () => {
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
-    const { login, isAuthenticated } = useAuth();
+    const [loading, setLoading] = useState(false);
+    const { login, session } = useAuth();
     const navigate = useNavigate();
 
     useEffect(() => {
-        if (isAuthenticated) {
+        if (session) {
             navigate('/admin/dashboard');
         }
-    }, [isAuthenticated, navigate]);
+    }, [session, navigate]);
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         setError('');
-        if (!login(password)) {
-            setError('Invalid password. Please try again.');
+        setLoading(true);
+        const { error } = await login(email, password);
+        if (error) {
+            setError(error.message);
         }
+        setLoading(false);
     };
 
     return (
@@ -41,6 +46,20 @@ const AdminLoginPage: React.FC = () => {
             <div className="w-full max-w-md p-8 space-y-6 bg-gray-800 rounded-lg shadow-lg">
                 <h1 className="text-3xl font-bold text-center text-cyan-400">Admin Login</h1>
                 <form onSubmit={handleSubmit} className="space-y-6">
+                     <div>
+                        <label htmlFor="email" className="text-sm font-medium text-gray-300 sr-only">Email</label>
+                        <input
+                            id="email"
+                            name="email"
+                            type="email"
+                            autoComplete="email"
+                            required
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="Email address"
+                            className="block w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-md shadow-sm placeholder-gray-400 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"
+                        />
+                    </div>
                     <div>
                         <label htmlFor="password" className="text-sm font-medium text-gray-300 sr-only">Password</label>
                         <input
@@ -59,13 +78,13 @@ const AdminLoginPage: React.FC = () => {
                     <div>
                         <button
                             type="submit"
-                            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-gray-800"
+                            disabled={loading}
+                            className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-cyan-600 hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Sign in
+                            {loading ? 'Signing in...' : 'Sign in'}
                         </button>
                     </div>
                 </form>
-                 <p className="text-center text-xs text-gray-500">Hint: The password is 'admin'</p>
             </div>
         </div>
     );

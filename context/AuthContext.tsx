@@ -1,36 +1,64 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { supabase } from '../supabaseClient';
+import { Session, User } from 'https://esm.sh/@supabase/supabase-js@2';
 
 interface AuthContextType {
-  isAuthenticated: boolean;
-  login: (password: string) => boolean;
-  logout: () => void;
+  user: User | null;
+  session: Session | null;
+  login: (email: string, password: string) => Promise<{ error: Error | null }>;
+  logout: () => Promise<void>;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// In a real app, this would be more secure. For this PWA, it's a simple check.
-const ADMIN_PASSWORD = 'admin'; 
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAdminAuthenticated') === 'true');
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (password: string): boolean => {
-    if (password === ADMIN_PASSWORD) {
-      sessionStorage.setItem('isAdminAuthenticated', 'true');
-      setIsAuthenticated(true);
-      return true;
-    }
-    return false;
+  useEffect(() => {
+    const getSession = async () => {
+        const { data: { session } } = await supabase.auth.getSession();
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+    };
+
+    getSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+      }
+    );
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    return { error };
   };
 
-  const logout = () => {
-    sessionStorage.removeItem('isAdminAuthenticated');
-    setIsAuthenticated(false);
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const value = {
+    user,
+    session,
+    login,
+    logout,
+    loading,
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, login, logout }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      {!loading && children}
     </AuthContext.Provider>
   );
 };
