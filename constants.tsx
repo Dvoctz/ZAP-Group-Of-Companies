@@ -56,6 +56,6 @@ export const COMPANIES: Company[] = [
         description: 'Professional photography services and prints.',
         icon: <CameraIcon />,
         isExternal: true,
-        externalLink: '#', // Admin can update this link later
+        externalLink: 'https://zapstudioportraits.mypixieset.com/',
     },
 ];

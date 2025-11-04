@@ -31,8 +31,8 @@ export interface StoreData {
 export type OrderStatus = 'New' | 'Processing' | 'Completed' | 'Cancelled';
 
 export interface Order {
-  id: string;
-  timestamp: number;
+  id: string; // UUID from supabase
+  created_at: string; // timestamptz from supabase
   customer: {
     name: string;
     contact: string;

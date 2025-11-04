@@ -7,7 +7,18 @@ import { useProducts } from '../context/ProductContext';
 
 const StorePage: React.FC = () => {
   const { companySlug } = useParams<{ companySlug: string }>();
-  const { stores } = useProducts();
+  const { stores, loading } = useProducts();
+
+  if (loading) {
+    return (
+       <div>
+         <Header title="Loading..." showBackButton={true} />
+         <main className="container mx-auto px-4 py-8 text-center">
+            <p className="text-gray-400 text-lg">Fetching products, please wait...</p>
+         </main>
+       </div>
+    );
+  }
 
   if (!companySlug || !stores[companySlug]) {
     return <Navigate to="/" />;

@@ -1,10 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Order } from '../../types';
-
-const getStoredOrders = (): Order[] => {
-    const ordersJson = localStorage.getItem('orders');
-    return ordersJson ? JSON.parse(ordersJson) : [];
-};
+import { supabase, OrderRow } from '../../supabaseClient';
 
 const StatCard: React.FC<{ title: string; value: string; }> = ({ title, value }) => (
     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
@@ -14,7 +10,38 @@ const StatCard: React.FC<{ title: string; value: string; }> = ({ title, value })
 );
 
 const AdminDashboardPage: React.FC = () => {
-    const orders = useMemo(() => getStoredOrders(), []);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchOrders = async () => {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('orders')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error("Error fetching orders:", error);
+            } else if (data) {
+                const mappedOrders: Order[] = data.map((o: OrderRow) => ({
+                    id: o.id,
+                    created_at: o.created_at,
+                    customer: {
+                        name: o.customer_name,
+                        contact: o.customer_contact,
+                        location: o.customer_location,
+                    },
+                    items: o.items,
+                    totalPrice: o.total_price,
+                    status: o.status,
+                }));
+                setOrders(mappedOrders);
+            }
+            setLoading(false);
+        };
+        fetchOrders();
+    }, []);
 
     const salesData = useMemo(() => {
         const now = new Date();
@@ -30,7 +57,7 @@ const AdminDashboardPage: React.FC = () => {
 
         orders.forEach(order => {
             if (order.status === 'Completed') {
-                const orderDate = new Date(order.timestamp);
+                const orderDate = new Date(order.created_at);
                 totalSales += order.totalPrice;
                 if (orderDate >= today) {
                     todaySales += order.totalPrice;
@@ -57,43 +84,49 @@ const AdminDashboardPage: React.FC = () => {
     return (
         <div>
             <h1 className="text-3xl font-bold text-white mb-6">Dashboard</h1>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Sales (Completed)" value={salesData.total} />
-                <StatCard title="Today's Sales" value={salesData.today} />
-                <StatCard title="This Week's Sales" value={salesData.week} />
-                <StatCard title="This Month's Sales" value={salesData.month} />
-            </div>
-            
-            <div className="mt-8 bg-gray-800 p-6 rounded-lg shadow-lg">
-                 <h2 className="text-xl font-bold text-white mb-4">Recent Orders</h2>
-                 {orders.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full">
-                            <thead>
-                                <tr>
-                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Order ID</th>
-                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Customer</th>
-                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Total</th>
-                                    <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {orders.slice(0, 5).map(order => (
-                                    <tr key={order.id} className="border-b border-gray-700">
-                                        <td className="px-4 py-2 whitespace-nowrap">{order.id}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap">{order.customer.name}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap">Tsh {order.totalPrice.toLocaleString('en-US')}</td>
-                                        <td className="px-4 py-2 whitespace-nowrap">{order.status}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="text-gray-400">No recent orders found.</p>
-                )}
-            </div>
 
+            {loading ? (
+                <p className="text-gray-400">Loading dashboard data...</p>
+            ) : (
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        <StatCard title="Total Sales (Completed)" value={salesData.total} />
+                        <StatCard title="Today's Sales" value={salesData.today} />
+                        <StatCard title="This Week's Sales" value={salesData.week} />
+                        <StatCard title="This Month's Sales" value={salesData.month} />
+                    </div>
+                    
+                    <div className="mt-8 bg-gray-800 p-6 rounded-lg shadow-lg">
+                        <h2 className="text-xl font-bold text-white mb-4">Recent Orders</h2>
+                        {orders.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full">
+                                    <thead>
+                                        <tr>
+                                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Order ID</th>
+                                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Customer</th>
+                                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Total</th>
+                                            <th className="px-4 py-2 text-left text-sm font-semibold text-gray-400">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {orders.slice(0, 5).map(order => (
+                                            <tr key={order.id} className="border-b border-gray-700">
+                                                <td className="px-4 py-2 whitespace-nowrap">{order.id.substring(0,8)}...</td>
+                                                <td className="px-4 py-2 whitespace-nowrap">{order.customer.name}</td>
+                                                <td className="px-4 py-2 whitespace-nowrap">Tsh {order.totalPrice.toLocaleString('en-US')}</td>
+                                                <td className="px-4 py-2 whitespace-nowrap">{order.status}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <p className="text-gray-400">No recent orders found.</p>
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     );
 };

@@ -2,19 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import Header from '../components/Header';
-import { Order, OrderStatus } from '../types';
-
-// Helper to get existing orders from localStorage
-const getStoredOrders = (): Order[] => {
-    const ordersJson = localStorage.getItem('orders');
-    return ordersJson ? JSON.parse(ordersJson) : [];
-};
-
-// Helper to save orders to localStorage
-const saveOrders = (orders: Order[]) => {
-    localStorage.setItem('orders', JSON.stringify(orders));
-};
-
+import { OrderStatus } from '../types';
+import { supabase } from '../supabaseClient';
 
 const CheckoutPage: React.FC = () => {
     const { cartItems, totalPrice, clearCart } = useCart();
@@ -22,7 +11,9 @@ const CheckoutPage: React.FC = () => {
 
     const [formData, setFormData] = useState({ name: '', contact: '', location: '' });
     const [errors, setErrors] = useState({ name: false, contact: false, location: false });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const [isSubmitted, setIsSubmitted] = useState(false);
+    const [submitError, setSubmitError] = useState<string | null>(null);
 
     useEffect(() => {
         if (cartItems.length === 0 && !isSubmitted) {
@@ -48,22 +39,30 @@ const CheckoutPage: React.FC = () => {
         return !Object.values(newErrors).some(Boolean);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (validateForm()) {
-            const newOrder: Order = {
-                id: `ZAP-${Date.now()}`,
-                timestamp: Date.now(),
-                customer: { ...formData },
-                items: cartItems,
-                totalPrice: totalPrice,
-                status: 'New' as OrderStatus,
-            };
-            
-            const existingOrders = getStoredOrders();
-            saveOrders([newOrder, ...existingOrders]);
+        if (!validateForm() || isSubmitting) return;
 
-            console.log('Order Submitted:', newOrder);
+        setIsSubmitting(true);
+        setSubmitError(null);
+
+        const newOrderData = {
+            customer_name: formData.name,
+            customer_contact: formData.contact,
+            customer_location: formData.location,
+            items: cartItems,
+            total_price: totalPrice,
+            status: 'New' as OrderStatus,
+        };
+
+        const { error } = await supabase.from('orders').insert([newOrderData]);
+
+        if (error) {
+            console.error('Error submitting order:', error);
+            setSubmitError('Failed to submit order. Please try again.');
+            setIsSubmitting(false);
+        } else {
+            console.log('Order Submitted Successfully');
             setIsSubmitted(true);
             clearCart();
             setTimeout(() => {
@@ -131,9 +130,10 @@ const CheckoutPage: React.FC = () => {
                                     <span className="text-cyan-400">Tsh {totalPrice.toLocaleString('en-US')}</span>
                                 </div>
                             </div>
-                             <button type="submit" className="mt-6 w-full bg-cyan-600 text-white font-bold py-3 px-4 rounded-md hover:bg-cyan-700 transition-colors duration-200 disabled:bg-gray-500">
-                                Confirm Order
+                             <button type="submit" className="mt-6 w-full bg-cyan-600 text-white font-bold py-3 px-4 rounded-md hover:bg-cyan-700 transition-colors duration-200 disabled:bg-gray-500" disabled={isSubmitting}>
+                                {isSubmitting ? 'Submitting...' : 'Confirm Order'}
                             </button>
+                            {submitError && <p className="text-red-500 text-sm text-center mt-2">{submitError}</p>}
                         </div>
                     </div>
                 </form>

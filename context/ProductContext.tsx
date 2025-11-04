@@ -1,95 +1,116 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { Product, StoreData } from '../types';
-import { STORE_DATA as initialStoreData } from '../data/products';
+import { supabase, ProductRow } from '../supabaseClient';
+import { COMPANIES } from '../constants';
 
 interface ProductContextType {
   stores: StoreData;
-  addProduct: (companySlug: string, product: Omit<Product, 'id'>) => void;
-  updateProduct: (companySlug: string, updatedProduct: Product) => void;
-  deleteProduct: (companySlug: string, productId: number) => void;
+  addProduct: (companySlug: string, product: Omit<Product, 'id'>) => Promise<void>;
+  updateProduct: (companySlug: string, updatedProduct: Product) => Promise<void>;
+  deleteProduct: (companySlug: string, productId: number) => Promise<void>;
+  loading: boolean;
 }
 
 const ProductContext = createContext<ProductContextType | undefined>(undefined);
 
-const getStoredProducts = (): StoreData => {
-  try {
-    const storedData = localStorage.getItem('products');
-    if (storedData) {
-      return JSON.parse(storedData);
-    }
-  } catch (error) {
-    console.error("Failed to parse products from localStorage", error);
-  }
-  // If nothing in storage or parsing fails, return initial data
-  localStorage.setItem('products', JSON.stringify(initialStoreData));
-  return initialStoreData;
-};
-
 export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [stores, setStores] = useState<StoreData>(getStoredProducts);
+  const [stores, setStores] = useState<StoreData>({});
+  const [loading, setLoading] = useState(true);
+
+  const fetchProducts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('products').select('*');
+    
+    if (error) {
+      console.error("Error fetching products:", error);
+      setLoading(false);
+      return;
+    }
+
+    if (data) {
+      const groupedStores: StoreData = {};
+
+      // Initialize all stores from constants to ensure they appear even if empty
+      COMPANIES.forEach(company => {
+        if (!company.isExternal) {
+          groupedStores[company.slug] = {
+            companyName: company.name,
+            products: [],
+          };
+        }
+      });
+
+      // Populate stores with products from the database
+      data.forEach((product: ProductRow) => {
+        const slug = product.company_slug;
+        if (groupedStores[slug]) {
+          groupedStores[slug].products.push({
+            id: product.id,
+            name: product.name,
+            price: product.price,
+            imageUrl: product.image_url,
+            description: product.description,
+          });
+        }
+      });
+
+      setStores(groupedStores);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
-    // This effect can be used to listen to storage changes from other tabs,
-    // but for now, we primarily save on update.
+    fetchProducts();
   }, []);
 
-  const addProduct = (companySlug: string, productData: Omit<Product, 'id'>) => {
-    const newProduct: Product = {
-      ...productData,
-      id: Date.now(), // Simple unique ID
-    };
+  const addProduct = async (companySlug: string, productData: Omit<Product, 'id'>) => {
+    const { error } = await supabase.from('products').insert([
+      {
+        company_slug: companySlug,
+        name: productData.name,
+        price: productData.price,
+        image_url: productData.imageUrl,
+        description: productData.description,
+      },
+    ]);
 
-    setStores(prevStores => {
-      const updatedStores = { ...prevStores };
-      if (updatedStores[companySlug]) {
-        updatedStores[companySlug] = {
-          ...updatedStores[companySlug],
-          products: [newProduct, ...updatedStores[companySlug].products],
-        };
-        localStorage.setItem('products', JSON.stringify(updatedStores));
-        return updatedStores;
-      }
-      return prevStores; // Return previous state if company slug is invalid
-    });
+    if (error) {
+      console.error('Error adding product:', error);
+    } else {
+      await fetchProducts(); // Refresh data
+    }
   };
 
-  const updateProduct = (companySlug: string, updatedProduct: Product) => {
-    setStores(prevStores => {
-        const updatedStores = { ...prevStores };
-        if (updatedStores[companySlug]) {
-            const productIndex = updatedStores[companySlug].products.findIndex(p => p.id === updatedProduct.id);
-            if (productIndex !== -1) {
-                const newProducts = [...updatedStores[companySlug].products];
-                newProducts[productIndex] = updatedProduct;
-                updatedStores[companySlug] = {
-                    ...updatedStores[companySlug],
-                    products: newProducts,
-                };
-                localStorage.setItem('products', JSON.stringify(updatedStores));
-                return updatedStores;
-            }
-        }
-        return prevStores;
-    });
+  const updateProduct = async (companySlug: string, updatedProduct: Product) => {
+    const { error } = await supabase
+      .from('products')
+      .update({
+        name: updatedProduct.name,
+        price: updatedProduct.price,
+        image_url: updatedProduct.imageUrl,
+        description: updatedProduct.description,
+      })
+      .eq('id', updatedProduct.id);
+    
+    if (error) {
+        console.error('Error updating product:', error);
+    } else {
+        await fetchProducts(); // Refresh data
+    }
   };
 
-  const deleteProduct = (companySlug: string, productId: number) => {
-      setStores(prevStores => {
-          const updatedStores = { ...prevStores };
-          if(updatedStores[companySlug]) {
-              updatedStores[companySlug] = {
-                  ...updatedStores[companySlug],
-                  products: updatedStores[companySlug].products.filter(p => p.id !== productId),
-              };
-              localStorage.setItem('products', JSON.stringify(updatedStores));
-              return updatedStores;
-          }
-          return prevStores;
-      });
+  const deleteProduct = async (companySlug: string, productId: number) => {
+    const { error } = await supabase.from('products').delete().eq('id', productId);
+    
+    if(error) {
+        console.error('Error deleting product:', error);
+    } else {
+        await fetchProducts(); // Refresh data
+    }
   };
 
   return (
-    <ProductContext.Provider value={{ stores, addProduct, updateProduct, deleteProduct }}>
+    <ProductContext.Provider value={{ stores, addProduct, updateProduct, deleteProduct, loading }}>
       {children}
     </ProductContext.Provider>
   );
