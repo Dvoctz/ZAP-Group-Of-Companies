@@ -107,3 +107,9 @@ const Cart: React.FC = () => {
                 </div>
             )}
         </div>
+      </aside>
+    </>
+  );
+};
+
+export default Cart;
