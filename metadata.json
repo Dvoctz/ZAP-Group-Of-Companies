@@ -1,0 +1,5 @@
+{
+  "name": "ZAP Group PWA Store",
+  "description": "An offline-first Progressive Web App for the ZAP Group of Companies, featuring online stores for Stationers, Fragrances, and Gadgets, and a link to ZAP Photography.",
+  "requestFramePermissions": []
+}
