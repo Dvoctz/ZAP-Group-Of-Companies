@@ -78,8 +78,7 @@ const AdminProductsPage: React.FC = () => {
         setSubmitMessage(null);
 
         try {
-            const apiKey = (import.meta as any).env.VITE_API_KEY as string;
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             const companyName = stores[formData.companySlug]?.companyName || 'our store';
             const prompt = `Write a compelling and concise product description (under 1000 characters) for a product named "${formData.name}" from the company "${companyName}". Focus on its key features and benefits for the customer.`;
 

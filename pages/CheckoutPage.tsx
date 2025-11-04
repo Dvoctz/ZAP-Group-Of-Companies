@@ -21,6 +21,20 @@ const CheckoutPage: React.FC = () => {
         }
     }, [cartItems, submissionStatus, navigate]);
 
+    // FIX: The redirection logic was incorrectly placed inside JSX, causing a type error.
+    // It has been moved to a useEffect hook to handle the side effect of navigation
+    // after a successful submission.
+    useEffect(() => {
+        if (submissionStatus === 'submitted' || submissionStatus === 'offline_submitted') {
+            const timer = setTimeout(() => {
+                navigate('/');
+            }, 4000);
+
+            // Clean up the timer if the component unmounts
+            return () => clearTimeout(timer);
+        }
+    }, [submissionStatus, navigate]);
+
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -119,7 +133,6 @@ const CheckoutPage: React.FC = () => {
                     {isOffline ? 'It will be submitted automatically when you reconnect.' : 'Thank you for your purchase.'}
                 </p>
                 <p className="text-gray-400">You will be redirected to the homepage shortly.</p>
-                <script>{setTimeout(() => navigate('/'), 4000)}</script>
             </div>
         )
     }
