@@ -78,7 +78,8 @@ const AdminProductsPage: React.FC = () => {
         setSubmitMessage(null);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            // FIX: Cast `import.meta` to `any` to resolve TypeScript error about `env` property.
+            const ai = new GoogleGenAI({ apiKey: (import.meta as any).env.VITE_API_KEY });
             const companyName = stores[formData.companySlug]?.companyName || 'our store';
             const prompt = `Write a compelling and concise product description (under 1000 characters) for a product named "${formData.name}" from the company "${companyName}". Focus on its key features and benefits for the customer.`;
 

@@ -3,8 +3,10 @@ import { Product, Order, CartItem } from './types';
 
 // These environment variables should be configured in your deployment environment (e.g., Vercel).
 // They are not hardcoded for security reasons.
-const supabaseUrl = process.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY as string;
+// FIX: Cast `import.meta` to `any` to resolve TypeScript error about `env` property.
+const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL as string;
+// FIX: Cast `import.meta` to `any` to resolve TypeScript error about `env` property.
+const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY as string;
 
 // A fallback for local development if environment variables are not set.
 // In a real production scenario, you would want to ensure these are always set.
