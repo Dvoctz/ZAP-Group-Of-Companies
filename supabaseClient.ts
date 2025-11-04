@@ -26,7 +26,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 export const uploadProductImage = async (file: File): Promise<{ publicUrl: string | null; error: Error | null }> => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Date.now()}.${fileExt}`;
-    const filePath = `public/${fileName}`;
+    const filePath = fileName; // Corrected: Removed 'public/' prefix
 
     const { error: uploadError } = await supabase.storage
         .from('product-images')
