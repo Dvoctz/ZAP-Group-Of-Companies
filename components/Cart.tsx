@@ -9,7 +9,15 @@ const CartItemCard: React.FC<{ item: CartItem }> = ({ item }) => {
     return (
         <div className="flex items-center justify-between p-4 border-b border-gray-700">
             <div className="flex items-center">
-                <img src={item.imageUrl} alt={item.name} className="w-16 h-16 object-cover rounded-md mr-4" />
+                {item.imageUrl ? (
+                    <img src={item.imageUrl} alt={item.name} className="w-16 h-16 object-cover rounded-md mr-4" />
+                ) : (
+                    <div className="w-16 h-16 bg-gray-700 flex items-center justify-center rounded-md mr-4 shrink-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                )}
                 <div>
                     <h4 className="font-semibold text-white">{item.name}</h4>
                     <p className="text-gray-400 text-sm">Tsh {item.price.toLocaleString('en-US')}</p>
@@ -99,9 +107,3 @@ const Cart: React.FC = () => {
                 </div>
             )}
         </div>
-      </aside>
-    </>
-  );
-};
-
-export default Cart;
