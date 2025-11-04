@@ -76,6 +76,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     if (error) {
       console.error('Error adding product:', error);
+      throw error;
     } else {
       await fetchProducts(); // Refresh data
     }
@@ -94,6 +95,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     if (error) {
         console.error('Error updating product:', error);
+        throw error;
     } else {
         await fetchProducts(); // Refresh data
     }
@@ -104,6 +106,7 @@ export const ProductProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     if(error) {
         console.error('Error deleting product:', error);
+        throw error;
     } else {
         await fetchProducts(); // Refresh data
     }

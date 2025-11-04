@@ -1,4 +1,3 @@
-
 const CACHE_NAME = 'zap-group-cache-v1';
 const urlsToCache = [
   '/',
@@ -48,4 +47,18 @@ self.addEventListener('activate', event => {
       );
     })
   );
+});
+
+// Listen for background sync events
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'sync-new-orders') {
+    console.log('Service Worker: Sync event for new orders received.');
+    event.waitUntil(
+      self.clients.matchAll({ includeUncontrolled: true, type: 'window' }).then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SYNC_ORDERS' });
+        });
+      })
+    );
+  }
 });

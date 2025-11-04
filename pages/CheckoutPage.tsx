@@ -4,6 +4,7 @@ import { useCart } from '../context/CartContext';
 import Header from '../components/Header';
 import { OrderStatus } from '../types';
 import { supabase } from '../supabaseClient';
+import { saveOrderForSync } from '../utils/indexedDB';
 
 const CheckoutPage: React.FC = () => {
     const { cartItems, totalPrice, clearCart } = useCart();
@@ -11,15 +12,14 @@ const CheckoutPage: React.FC = () => {
 
     const [formData, setFormData] = useState({ name: '', contact: '', location: '' });
     const [errors, setErrors] = useState({ name: false, contact: false, location: false });
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isSubmitted, setIsSubmitted] = useState(false);
+    const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'submitting' | 'submitted' | 'offline_submitted' | 'error'>('idle');
     const [submitError, setSubmitError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (cartItems.length === 0 && !isSubmitted) {
+        if (cartItems.length === 0 && submissionStatus !== 'submitted' && submissionStatus !== 'offline_submitted') {
             navigate('/');
         }
-    }, [cartItems, isSubmitted, navigate]);
+    }, [cartItems, submissionStatus, navigate]);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
@@ -41,9 +41,9 @@ const CheckoutPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!validateForm() || isSubmitting) return;
+        if (!validateForm() || submissionStatus === 'submitting') return;
 
-        setIsSubmitting(true);
+        setSubmissionStatus('submitting');
         setSubmitError(null);
 
         const newOrderData = {
@@ -54,33 +54,72 @@ const CheckoutPage: React.FC = () => {
             total_price: totalPrice,
             status: 'New' as OrderStatus,
         };
+        
+        // Handle offline submission
+        if (!navigator.onLine) {
+            try {
+                const orderWithClientId = { ...newOrderData, clientId: crypto.randomUUID() };
+                await saveOrderForSync(orderWithClientId);
 
+                // Register for background sync
+                if ('serviceWorker' in navigator && 'SyncManager' in window) {
+                    const sw = await navigator.serviceWorker.ready;
+                    // FIX: Cast `sw` to `any` to access the `sync` property. The Background Sync API
+                    // is not included in the default TypeScript DOM library typings.
+                    await (sw as any).sync.register('sync-new-orders');
+                    console.log('Background sync for orders registered.');
+                }
+                
+                setSubmissionStatus('offline_submitted');
+                clearCart();
+            } catch (err) {
+                console.error('Failed to save order for sync:', err);
+                setSubmitError('Could not save order offline. Please try again.');
+                setSubmissionStatus('error');
+            }
+            return;
+        }
+
+        // Handle online submission
         const { error } = await supabase.from('orders').insert([newOrderData]);
 
         if (error) {
             console.error('Error submitting order:', error);
             setSubmitError('Failed to submit order. Please try again.');
-            setIsSubmitting(false);
+            setSubmissionStatus('error');
         } else {
             console.log('Order Submitted Successfully');
-            setIsSubmitted(true);
+            setSubmissionStatus('submitted');
             clearCart();
-            setTimeout(() => {
-                navigate('/');
-            }, 3000);
         }
     };
     
-    if (isSubmitted) {
+    if (submissionStatus === 'submitted' || submissionStatus === 'offline_submitted') {
+        const isOffline = submissionStatus === 'offline_submitted';
         return (
             <div className="flex flex-col items-center justify-center min-h-screen text-center px-4">
-                 <svg className="w-24 h-24 text-green-400 mb-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                 <svg className={`w-24 h-24 ${isOffline ? 'text-blue-400' : 'text-green-400'} mb-4`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {isOffline ? (
+                        <>
+                           <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                           <polyline points="7 10 12 15 17 10" />
+                           <line x1="12" y1="15" x2="12" y2="3" />
+                        </>
+                    ) : (
+                       <>
+                           <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                           <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                       </>
+                    )}
                 </svg>
-                <h1 className="text-3xl sm:text-4xl font-extrabold text-white">Order Confirmed!</h1>
-                <p className="mt-2 text-lg text-gray-300">Thank you for your purchase.</p>
+                <h1 className="text-3xl sm:text-4xl font-extrabold text-white">
+                    {isOffline ? 'Order Saved Offline!' : 'Order Confirmed!'}
+                </h1>
+                <p className="mt-2 text-lg text-gray-300">
+                    {isOffline ? 'It will be submitted automatically when you reconnect.' : 'Thank you for your purchase.'}
+                </p>
                 <p className="text-gray-400">You will be redirected to the homepage shortly.</p>
+                <script>{setTimeout(() => navigate('/'), 4000)}</script>
             </div>
         )
     }
@@ -130,10 +169,10 @@ const CheckoutPage: React.FC = () => {
                                     <span className="text-cyan-400">Tsh {totalPrice.toLocaleString('en-US')}</span>
                                 </div>
                             </div>
-                             <button type="submit" className="mt-6 w-full bg-cyan-600 text-white font-bold py-3 px-4 rounded-md hover:bg-cyan-700 transition-colors duration-200 disabled:bg-gray-500" disabled={isSubmitting}>
-                                {isSubmitting ? 'Submitting...' : 'Confirm Order'}
+                             <button type="submit" className="mt-6 w-full bg-cyan-600 text-white font-bold py-3 px-4 rounded-md hover:bg-cyan-700 transition-colors duration-200 disabled:bg-gray-500" disabled={submissionStatus === 'submitting'}>
+                                {submissionStatus === 'submitting' ? 'Submitting...' : 'Confirm Order'}
                             </button>
-                            {submitError && <p className="text-red-500 text-sm text-center mt-2">{submitError}</p>}
+                            {submissionStatus === 'error' && <p className="text-red-500 text-sm text-center mt-2">{submitError}</p>}
                         </div>
                     </div>
                 </form>

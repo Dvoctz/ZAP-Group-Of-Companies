@@ -42,3 +42,16 @@ export interface Order {
   totalPrice: number;
   status: OrderStatus;
 }
+
+// Represents an order created offline, before it's sent to the backend.
+// FIX: Redefined PendingOrder to have a flat structure matching what's sent to Supabase.
+// The previous definition using Omit<Order,...> was incorrect and caused type errors.
+export type PendingOrder = {
+    customer_name: string;
+    customer_contact: string;
+    customer_location: string;
+    items: CartItem[];
+    total_price: number;
+    status: OrderStatus;
+    clientId: string; // A unique ID generated on the client
+};

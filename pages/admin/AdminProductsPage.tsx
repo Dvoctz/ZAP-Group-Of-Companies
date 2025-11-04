@@ -10,6 +10,11 @@ const INITIAL_FORM_STATE = {
     description: '',
 };
 
+type SubmitMessage = {
+    text: string;
+    type: 'success' | 'error';
+};
+
 const AdminProductsPage: React.FC = () => {
     const { stores, addProduct, updateProduct, deleteProduct, loading } = useProducts();
     const [formData, setFormData] = useState(INITIAL_FORM_STATE);
@@ -17,7 +22,7 @@ const AdminProductsPage: React.FC = () => {
     const [imageFile, setImageFile] = useState<File | null>(null);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [submitMessage, setSubmitMessage] = useState('');
+    const [submitMessage, setSubmitMessage] = useState<SubmitMessage | null>(null);
     const formRef = useRef<HTMLDivElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -57,57 +62,61 @@ const AdminProductsPage: React.FC = () => {
         setFormData(INITIAL_FORM_STATE);
         setImageFile(null);
         setImagePreview(null);
+        setSubmitMessage(null);
     };
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
         if (!editingProduct && !imageFile) {
-            setSubmitMessage('Product image is required for a new product.');
-            setTimeout(() => setSubmitMessage(''), 3000);
+            setSubmitMessage({ text: 'Product image is required for a new product.', type: 'error' });
             return;
         }
 
         setIsSubmitting(true);
-        setSubmitMessage('');
+        setSubmitMessage(null);
 
-        let finalImageUrl = editingProduct ? editingProduct.imageUrl : '';
+        try {
+            let finalImageUrl = editingProduct ? editingProduct.imageUrl : '';
 
-        if (imageFile) {
-            const { publicUrl, error } = await uploadProductImage(imageFile);
-            if (error || !publicUrl) {
-                console.error(error);
-                setSubmitMessage('Image upload failed. Please try again.');
-                setIsSubmitting(false);
-                return;
+            if (imageFile) {
+                const { publicUrl, error } = await uploadProductImage(imageFile);
+                if (error || !publicUrl) {
+                    throw error || new Error('Image upload failed.');
+                }
+                finalImageUrl = publicUrl;
             }
-            finalImageUrl = publicUrl;
-        }
 
-        if (editingProduct) {
-            const productData: Product = {
-                ...editingProduct,
-                name: formData.name,
-                price: parseFloat(formData.price),
-                description: formData.description,
-                imageUrl: finalImageUrl,
-            };
-            await updateProduct(formData.companySlug, productData);
-            setSubmitMessage('Product updated successfully!');
-        } else {
-            const productData: Omit<Product, 'id'> = {
-                name: formData.name,
-                price: parseFloat(formData.price),
-                description: formData.description,
-                imageUrl: finalImageUrl,
-            };
-            await addProduct(formData.companySlug, productData);
-            setSubmitMessage('Product added successfully!');
+            if (editingProduct) {
+                const productData: Product = {
+                    ...editingProduct,
+                    name: formData.name,
+                    price: parseFloat(formData.price),
+                    description: formData.description,
+                    imageUrl: finalImageUrl,
+                };
+                await updateProduct(formData.companySlug, productData);
+                setSubmitMessage({ text: 'Product updated successfully!', type: 'success' });
+            } else {
+                const productData: Omit<Product, 'id'> = {
+                    name: formData.name,
+                    price: parseFloat(formData.price),
+                    description: formData.description,
+                    imageUrl: finalImageUrl,
+                };
+                await addProduct(formData.companySlug, productData);
+                setSubmitMessage({ text: 'Product added successfully!', type: 'success' });
+            }
+            
+            handleCancelEdit();
+
+        } catch (error: any) {
+            console.error("Failed to save product:", error);
+            setSubmitMessage({ text: `Error: ${error.message}`, type: 'error' });
+        } finally {
+            setIsSubmitting(false);
+            setTimeout(() => setSubmitMessage(null), 5000);
         }
-        
-        setIsSubmitting(false);
-        handleCancelEdit();
-        setTimeout(() => setSubmitMessage(''), 3000);
     };
 
     return (
@@ -161,7 +170,11 @@ const AdminProductsPage: React.FC = () => {
                                     </button>
                                 )}
                             </div>
-                            {submitMessage && <p className="text-green-400 text-sm text-center mt-2">{submitMessage}</p>}
+                            {submitMessage && (
+                                <p className={`text-sm text-center mt-2 ${submitMessage.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {submitMessage.text}
+                                </p>
+                            )}
                         </form>
                     </div>
                 </div>
