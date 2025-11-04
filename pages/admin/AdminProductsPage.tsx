@@ -2,6 +2,7 @@ import React, { useState, FormEvent, useRef, ChangeEvent } from 'react';
 import { useProducts } from '../../context/ProductContext';
 import { Product } from '../../types';
 import { uploadProductImage } from '../../supabaseClient';
+import { GoogleGenAI } from '@google/genai';
 
 const INITIAL_FORM_STATE = {
     companySlug: 'zap-stationers',
@@ -23,6 +24,7 @@ const AdminProductsPage: React.FC = () => {
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [submitMessage, setSubmitMessage] = useState<SubmitMessage | null>(null);
+    const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
     const formRef = useRef<HTMLDivElement>(null);
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -63,6 +65,40 @@ const AdminProductsPage: React.FC = () => {
         setImageFile(null);
         setImagePreview(null);
         setSubmitMessage(null);
+    };
+
+    const handleGenerateDescription = async () => {
+        if (!formData.name || !formData.companySlug) {
+            setSubmitMessage({ text: 'Please enter a Product Name and select a Company first.', type: 'error' });
+            setTimeout(() => setSubmitMessage(null), 5000);
+            return;
+        }
+
+        setIsGeneratingDescription(true);
+        setSubmitMessage(null);
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const companyName = stores[formData.companySlug]?.companyName || 'our store';
+            const prompt = `Write a compelling and concise product description (under 1000 characters) for a product named "${formData.name}" from the company "${companyName}". Focus on its key features and benefits for the customer.`;
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+            
+            const generatedText = response.text;
+            const truncatedText = generatedText.substring(0, 1000);
+            
+            setFormData(prev => ({ ...prev, description: truncatedText }));
+
+        } catch (error: any) {
+            console.error("Failed to generate description:", error);
+            setSubmitMessage({ text: `AI Error: ${error.message}`, type: 'error' });
+            setTimeout(() => setSubmitMessage(null), 5000);
+        } finally {
+            setIsGeneratingDescription(false);
+        }
     };
 
     const handleSubmit = async (e: FormEvent) => {
@@ -152,8 +188,29 @@ const AdminProductsPage: React.FC = () => {
                                 )}
                             </div>
                             <div>
-                                <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description</label>
-                                <textarea id="description" name="description" value={formData.description} onChange={handleInputChange} rows={3} required className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                                <div className="flex justify-between items-center">
+                                    <label htmlFor="description" className="block text-sm font-medium text-gray-300">Description</label>
+                                    <button
+                                        type="button"
+                                        onClick={handleGenerateDescription}
+                                        disabled={isGeneratingDescription || !formData.name}
+                                        className="text-xs bg-gray-600 hover:bg-gray-500 text-cyan-300 font-semibold py-1 px-2 rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isGeneratingDescription ? 'Generating...' : '✨ Generate with AI'}
+                                    </button>
+                                </div>
+                                <textarea 
+                                    id="description" 
+                                    name="description" 
+                                    value={formData.description} 
+                                    onChange={handleInputChange} 
+                                    rows={3} 
+                                    required 
+                                    maxLength={1000}
+                                    className="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500"></textarea>
+                                <p className="text-right text-xs text-gray-400 mt-1">
+                                    {formData.description.length} / 1000
+                                </p>
                             </div>
                             <div className="pt-2 space-y-2">
                                 <button type="submit" className="w-full bg-cyan-600 text-white font-bold py-2 px-4 rounded-md hover:bg-cyan-700 transition-colors duration-200 disabled:bg-gray-500" disabled={isSubmitting}>
