@@ -68,11 +68,6 @@ const AdminProductsPage: React.FC = () => {
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
-        if (!editingProduct && !imageFile) {
-            setSubmitMessage({ text: 'Product image is required for a new product.', type: 'error' });
-            return;
-        }
-
         setIsSubmitting(true);
         setSubmitMessage(null);
 
